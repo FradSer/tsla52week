@@ -12,6 +12,7 @@ export default function Home() {
   const [priceData, setPriceData] = useState<PriceData | null>(null);
 
   useEffect(() => {
+    if (!debug) {
     const fetchPriceData = async () => {
       try {
         const response = await fetch('/api/tsla-price');
@@ -25,7 +26,8 @@ export default function Home() {
       }
     };
 
-    fetchPriceData();
+      fetchPriceData();
+    }
   }, []);
 
   return (
@@ -53,7 +55,7 @@ export default function Home() {
                   <div>$TSLA</div>
                   <div>52 week high</div>
                   <div
-                    className="mt-4">@{debug ? (999.99.toFixed(2)) : priceData?.high.toFixed(2)}</div>
+                    className="mt-4">@{debug ? (358.64.toFixed(2)) : priceData?.high.toFixed(2)}</div>
                 </div>
               </div>
 
@@ -63,7 +65,7 @@ export default function Home() {
                   <div>$TSLA</div>
                   <div>52 week low</div>
                   <div
-                    className="mt-4">@{debug ? (100.00).toFixed(2) : priceData?.low.toFixed(2)}</div>
+                    className="mt-4">@{debug ? (138.80).toFixed(2) : priceData?.low.toFixed(2)}</div>
                 </div>
               </div>
             </div>
