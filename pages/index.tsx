@@ -12,7 +12,7 @@ export default function Home() {
 
   // Use useMemo to memoize priceData
   const priceData: PriceData = useMemo(() => {
-    return debug ? { high: 358.64, low: 138.80 } : { high: 0, low: 0 };
+    return debug ? { high: 358.64, low: 138.8 } : { high: 0, low: 0 };
   }, [debug]);
 
   useEffect(() => {
@@ -53,8 +53,9 @@ export default function Home() {
 
             // 绘制文本
             ctx.fillStyle = "#333";
-            ctx.font = "bold 40px 'Comic Sans MS'";
             ctx.textAlign = "center";
+
+            ctx.font = "bold 40px 'Comic Neue'";
 
             // 高价
             ctx.fillText("$TSLA", canvas.width / 1.78, canvas.height / 4);
@@ -62,11 +63,6 @@ export default function Home() {
               "52 week high",
               canvas.width / 1.78,
               canvas.height / 4 + 50,
-            );
-            ctx.fillText(
-              `@${data.high.toFixed(2)}`,
-              canvas.width / 1.78,
-              canvas.height / 4 + 150,
             );
 
             // 低价
@@ -76,10 +72,18 @@ export default function Home() {
               canvas.width / 1.2,
               canvas.height / 4 + 50,
             );
+
+            // 修改字体大小为 52px
+            ctx.font = "bold 48px 'Comic Neue'";
+            ctx.fillText(
+              `@${data.high.toFixed(2)}`,
+              canvas.width / 1.78,
+              canvas.height / 4 + 160,
+            );
             ctx.fillText(
               `@${data.low.toFixed(2)}`,
               canvas.width / 1.2,
-              canvas.height / 4 + 150,
+              canvas.height / 4 + 160,
             );
           };
         }
