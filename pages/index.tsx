@@ -1,5 +1,4 @@
-import { useEffect, useState } from "react";
-import Image from "next/image";
+import { useEffect, useRef, useMemo } from "react";
 import Link from "next/link";
 
 interface PriceData {
@@ -8,84 +7,96 @@ interface PriceData {
 }
 
 export default function Home() {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const debug = process.env.NEXT_PUBLIC_DEBUG === "true";
-  const [priceData, setPriceData] = useState<PriceData | null>(null);
+
+  // Use useMemo to memoize priceData
+  const priceData: PriceData = useMemo(() => {
+    return debug ? { high: 358.64, low: 138.80 } : { high: 0, low: 0 };
+  }, [debug]);
 
   useEffect(() => {
-    if (!debug) {
-      const fetchPriceData = async () => {
+    const fetchPriceData = async () => {
+      if (!debug) {
         try {
           const response = await fetch("/api/tsla-price");
           if (!response.ok) {
             console.error("Failed to fetch price data");
-            return; // Ensure it doesn't proceed if response is not OK
+            return;
           }
-          const data = await response.json();
-          setPriceData(data);
+          const data: PriceData = await response.json();
+          if (canvasRef.current) {
+            drawCanvas(data);
+          }
         } catch (error) {
           console.error("Error fetching price data:", error);
         }
-      };
+      } else if (canvasRef.current) {
+        drawCanvas(priceData);
+      }
+    };
 
-      // Handle the returned Promise to avoid the warning
-      const fetchData = fetchPriceData();
-      return () => {
-        fetchData.then(() => {
-          console.log("Clean-up or finalize if necessary.");
-        });
-      };
-    }
-  }, [debug]);
+    const drawCanvas = (data: PriceData) => {
+      const canvas = canvasRef.current;
+      if (canvas) {
+        const ctx = canvas.getContext("2d");
+        if (ctx) {
+          // 设置画布大小
+          canvas.width = 1540;
+          canvas.height = 1540;
+
+          // 绘制背景图像
+          const background = new Image();
+          background.src = "/bg.png";
+          background.onload = () => {
+            ctx.drawImage(background, 0, 0, canvas.width, canvas.height);
+
+            // 绘制文本
+            ctx.fillStyle = "#333";
+            ctx.font = "bold 40px 'Comic Sans MS'";
+            ctx.textAlign = "center";
+
+            // 高价
+            ctx.fillText("$TSLA", canvas.width / 1.78, canvas.height / 4);
+            ctx.fillText(
+              "52 week high",
+              canvas.width / 1.78,
+              canvas.height / 4 + 50,
+            );
+            ctx.fillText(
+              `@${data.high.toFixed(2)}`,
+              canvas.width / 1.78,
+              canvas.height / 4 + 150,
+            );
+
+            // 低价
+            ctx.fillText("$TSLA", canvas.width / 1.2, canvas.height / 4);
+            ctx.fillText(
+              "52 week low",
+              canvas.width / 1.2,
+              canvas.height / 4 + 50,
+            );
+            ctx.fillText(
+              `@${data.low.toFixed(2)}`,
+              canvas.width / 1.2,
+              canvas.height / 4 + 150,
+            );
+          };
+        }
+      }
+    };
+
+    fetchPriceData();
+  }, [debug, priceData]);
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-white">
-      <div className="relative w-full max-w-4xl">
-        {/* Container with aspect ratio */}
-        <div className="relative w-full" style={{ paddingBottom: "100%" }}>
-          {/* Background image */}
-          <div className="absolute inset-0">
-            <Image
-              src="/bg.png"
-              alt="Background"
-              objectFit="contain"
-              width="1540"
-              height="1540"
-            />
-          </div>
-
-          {/* Overlay text */}
-          {(debug || priceData) && (
-            <div className="absolute text-bold text-black top-1/4 left-1/2 transform -translate-x-[5.5%] -translate-y-[35%] flex space-x-[3.9rem] md:space-x-[5.3rem] sm:space-x-[4.9rem]">
-              {/* High Price */}
-              <div className="text-center">
-                <div style={{ fontSize: "min(1.8rem, calc(3vw))" }}>
-                  <div>$TSLA</div>
-                  <div>52 week high</div>
-                  <div className="mt-4">
-                    @{debug ? (358.64).toFixed(2) : priceData?.high.toFixed(2)}
-                  </div>
-                </div>
-              </div>
-
-              {/* Low Price */}
-              <div className="text-center">
-                <div style={{ fontSize: "min(1.8rem, calc(3vw))" }}>
-                  <div>$TSLA</div>
-                  <div>52 week low</div>
-                  <div className="mt-4">
-                    @{debug ? (138.8).toFixed(2) : priceData?.low.toFixed(2)}
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-        <div className="absolute text-bold text-black bottom-0 flex items-center justify-center w-full">
-          Made with FOMO by&nbsp;
-          <Link href="https://frad.me">
-            <u>Frad</u>
-          </Link>
-        </div>
+      <canvas ref={canvasRef} className="w-full max-w-4xl" />
+      <div className="absolute text-bold text-black bottom-2 flex items-center justify-center w-full">
+        Made with FOMO by&nbsp;
+        <Link href="https://frad.me">
+          <u>Frad</u>
+        </Link>
       </div>
     </div>
   );
