@@ -48,7 +48,7 @@ export default function Home() {
 
           {/* Overlay text */}
           {(debug || priceData) && (
-            <div className="absolute text-bold text-black top-1/4 left-1/2 transform -translate-x-[5.5%] -translate-y-[35%] flex space-x-[3.2rem] sm:space-x-[4.9rem]">
+            <div className="absolute text-bold text-black top-1/4 left-1/2 transform -translate-x-[5.5%] -translate-y-[35%] flex space-x-[3.9rem] md:space-x-[5.3rem] sm:space-x-[4.9rem]">
               {/* High Price */}
               <div className="text-center">
                 <div style={{fontSize: 'min(1.8rem, calc(3vw))'}}>
