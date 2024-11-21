@@ -1,4 +1,4 @@
-import axios from 'axios';
+import axios from "axios";
 
 // Initialize global cache object
 if (!globalThis.priceDataCache) {
@@ -12,10 +12,10 @@ const fetchAndCachePriceData = async () => {
 
   try {
     const response = await axios.get(url);
-    const timeSeries = response.data['Monthly Adjusted Time Series'];
+    const timeSeries = response.data["Monthly Adjusted Time Series"];
 
     if (!timeSeries) {
-      console.error('No time series data available');
+      console.error("No time series data available");
       return;
     }
 
@@ -23,11 +23,13 @@ const fetchAndCachePriceData = async () => {
     const highPrices: number[] = [];
     const lowPrices: number[] = [];
 
-    Object.keys(timeSeries).slice(0, 12).forEach((date) => {
-      const data = timeSeries[date];
-      highPrices.push(parseFloat(data['2. high']));
-      lowPrices.push(parseFloat(data['3. low']));
-    });
+    Object.keys(timeSeries)
+      .slice(0, 12)
+      .forEach((date) => {
+        const data = timeSeries[date];
+        highPrices.push(parseFloat(data["2. high"]));
+        lowPrices.push(parseFloat(data["3. low"]));
+      });
 
     // Calculate 52-week high and low
     const high52Week = Math.max(...highPrices);
@@ -39,9 +41,9 @@ const fetchAndCachePriceData = async () => {
       lastFetch: Date.now(),
     };
 
-    console.log('Price data cached:', globalThis.priceDataCache.data);
+    console.log("Price data cached:", globalThis.priceDataCache.data);
   } catch (error) {
-    console.error('Error fetching data from Alpha Vantage:', error);
+    console.error("Error fetching data from Alpha Vantage:", error);
   }
 };
 
