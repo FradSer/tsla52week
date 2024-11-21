@@ -94,9 +94,9 @@ export default function Home() {
   }, [debug, priceData]);
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-white">
+    <div className="relative flex items-center justify-center min-h-screen bg-white">
       <canvas ref={canvasRef} className="w-full max-w-4xl" />
-      <div className="absolute text-bold text-black bottom-2 flex items-center justify-center w-full">
+      <div className="absolute text-bold text-black bottom-4 flex items-center justify-center w-full">
         Made with FOMO by&nbsp;
         <Link href="https://frad.me">
           <u>Frad</u>
