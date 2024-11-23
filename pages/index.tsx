@@ -1,4 +1,4 @@
-import { useEffect, useRef, useMemo } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 
 interface PriceData {
@@ -9,11 +9,9 @@ interface PriceData {
 export default function Home() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const debug = process.env.NEXT_PUBLIC_DEBUG === "true";
-
-  // Use useMemo to memoize priceData
-  const priceData: PriceData = useMemo(() => {
-    return debug ? { high: 358.64, low: 138.8 } : { high: 0, low: 0 };
-  }, [debug]);
+  const [priceData, setPriceData] = useState<PriceData>(
+    debug ? { high: 358.64, low: 138.8 } : { high: 0, low: 0 }
+  );
 
   useEffect(() => {
     const fetchPriceData = async () => {
@@ -25,73 +23,73 @@ export default function Home() {
             return;
           }
           const data: PriceData = await response.json();
-          if (canvasRef.current) {
-            drawCanvas(data);
-          }
+          setPriceData(data);
         } catch (error) {
           console.error("Error fetching price data:", error);
-        }
-      } else if (canvasRef.current) {
-        drawCanvas(priceData);
-      }
-    };
-
-    const drawCanvas = (data: PriceData) => {
-      const canvas = canvasRef.current;
-      if (canvas) {
-        const ctx = canvas.getContext("2d");
-        if (ctx) {
-          // 设置画布大小
-          canvas.width = 1540;
-          canvas.height = 1540;
-
-          // 绘制背景图像
-          const background = new Image();
-          background.src = "/bg.png";
-          background.onload = () => {
-            ctx.drawImage(background, 0, 0, canvas.width, canvas.height);
-
-            // 绘制文本
-            ctx.fillStyle = "#333";
-            ctx.textAlign = "center";
-
-            ctx.font = "bold 40px 'Comic Neue'";
-
-            // 高价
-            ctx.fillText("$TSLA", canvas.width / 1.78, canvas.height / 4);
-            ctx.fillText(
-              "52 week high",
-              canvas.width / 1.78,
-              canvas.height / 4 + 50,
-            );
-
-            // 低价
-            ctx.fillText("$TSLA", canvas.width / 1.2, canvas.height / 4);
-            ctx.fillText(
-              "52 week low",
-              canvas.width / 1.2,
-              canvas.height / 4 + 50,
-            );
-
-            // 修改字体大小为 52px
-            ctx.font = "bold 48px 'Comic Neue'";
-            ctx.fillText(
-              `@${data.high.toFixed(2)}`,
-              canvas.width / 1.78,
-              canvas.height / 4 + 160,
-            );
-            ctx.fillText(
-              `@${data.low.toFixed(2)}`,
-              canvas.width / 1.2,
-              canvas.height / 4 + 160,
-            );
-          };
         }
       }
     };
 
     fetchPriceData();
-  }, [debug, priceData]);
+  }, [debug]);
+
+  useEffect(() => {
+    const drawCanvas = () => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+
+      // 设置画布大小
+      canvas.width = 1540;
+      canvas.height = 1540;
+
+      // 绘制背景图像
+      const background = new Image();
+      background.src = "/bg.png";
+      background.onload = () => {
+        ctx.drawImage(background, 0, 0, canvas.width, canvas.height);
+
+        // 绘制文本
+        ctx.fillStyle = "#333";
+        ctx.textAlign = "center";
+
+        ctx.font = "bold 40px 'Comic Neue'";
+
+        // 高价
+        ctx.fillText("$TSLA", canvas.width / 1.78, canvas.height / 4);
+        ctx.fillText(
+          "52 week high",
+          canvas.width / 1.78,
+          canvas.height / 4 + 50,
+        );
+
+        // 低价
+        ctx.fillText("$TSLA", canvas.width / 1.2, canvas.height / 4);
+        ctx.fillText(
+          "52 week low",
+          canvas.width / 1.2,
+          canvas.height / 4 + 50,
+        );
+
+        // 修改字体大小为 48px
+        ctx.font = "bold 48px 'Comic Neue'";
+        ctx.fillText(
+          `@${priceData.high.toFixed(2)}`,
+          canvas.width / 1.78,
+          canvas.height / 4 + 160,
+        );
+        ctx.fillText(
+          `@${priceData.low.toFixed(2)}`,
+          canvas.width / 1.2,
+          canvas.height / 4 + 160,
+        );
+      };
+    };
+
+    drawCanvas();
+  }, [priceData]);
 
   return (
     <div className="relative flex items-center justify-center min-h-screen bg-white">
