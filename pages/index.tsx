@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/router";
+import Head from "next/head";
 
 interface PriceData {
   high: number;
@@ -147,26 +148,71 @@ export default function Home() {
   }, [imageSrc, priceData, router]);
 
   return (
-    <div className="relative flex items-center justify-center min-h-screen bg-white">
-      {blobUrl && !blobError ? (
-        <Image
-          src={blobUrl}
-          alt="Stored Canvas Image"
-          width={800}
-          height={800}
-          onError={() => setBlobError(true)}
+    <>
+      <Head>
+        <title>TSLA 52 Week MEME</title>
+        <meta
+          name="description"
+          content="Explore Tesla's 52-week high and low. Get the latest TSLA stock trends, analysis, and insights to make informed decisions."
         />
-      ) : priceData && imageSrc ? (
-        <Image src={imageSrc} alt="Canvas Image" width={800} height={800} />
-      ) : (
-        <canvas ref={canvasRef} className="hidden" />
-      )}
-      <div className="absolute text-bold text-black bottom-4 flex items-center justify-center w-full">
-        Made with FOMO by&nbsp;
-        <Link href="https://frad.me">
-          <u>Frad</u>
-        </Link>
+
+        <meta
+          property="og:title"
+          content="TSLA 52 Week MEME"
+        />
+        <meta
+          property="og:description"
+          content="Explore Tesla's 52-week highs and lows. Get the latest TSLA stock trends, analysis, and insights to make informed decisions."
+        />
+        <meta property="og:image" content={blobUrl || "/default-image.png"} />
+        <meta property="og:url" content="https://tsla52week.com" />
+        <meta property="og:type" content="website" />
+        <meta
+          property="og:site_name"
+          content="TSLA 52 Week MEME"
+        />
+
+        <meta
+          name="keywords"
+          content="Tesla, TSLA, Tesla Stock, 52 Week Highs, 52 Week Lows, Stock Analysis, Tesla Insights, TSLA Trends, MEME"
+        />
+        <meta name="author" content="Frad LEE" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta name="robots" content="index, follow" />
+        <link rel="canonical" href="https://tsla52week.com" />
+
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta
+          name="twitter:title"
+          content="TSLA 52 Week MEME"
+        />
+        <meta
+          name="twitter:description"
+          content="Discover Tesla's stock highs and lows over the past 52 weeks. Stay updated with TSLA trends and analysis."
+        />
+        <meta name="twitter:image" content={blobUrl || "/default-image.png"} />
+      </Head>
+      <div className="relative flex items-center justify-center min-h-screen bg-white">
+        {blobUrl && !blobError ? (
+          <Image
+            src={blobUrl}
+            alt="Stored Canvas Image"
+            width={800}
+            height={800}
+            onError={() => setBlobError(true)}
+          />
+        ) : priceData && imageSrc ? (
+          <Image src={imageSrc} alt="Canvas Image" width={800} height={800} />
+        ) : (
+          <canvas ref={canvasRef} className="hidden" />
+        )}
+        <div className="absolute text-bold text-black bottom-4 flex items-center justify-center w-full">
+          Made with FOMO by&nbsp;
+          <Link href="https://frad.me">
+            <u>Frad</u>
+          </Link>
+        </div>
       </div>
-    </div>
+    </>
   );
 }
