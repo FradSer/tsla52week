@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { put } from "@vercel/blob";
 import { useRouter } from "next/router";
 
 interface PriceData {
@@ -19,7 +18,6 @@ export default function Home() {
   const router = useRouter();
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
   const [blobError, setBlobError] = useState(false);
-  const [lastPriceData, setLastPriceData] = useState<PriceData | null>(null);
 
   useEffect(() => {
     const fetchPriceData = async () => {
