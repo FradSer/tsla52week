@@ -13,7 +13,7 @@ interface PriceData {
 
 // 默认价格数据
 const DEFAULT_PRICES: PriceData = {
-  high: 361.53,
+  high: 389.49,
   low: 138.8,
   lastUpdated: Date.now(),
 };

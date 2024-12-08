@@ -13,7 +13,7 @@ export default function Home() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const debug = process.env.NEXT_PUBLIC_DEBUG === "true";
   const [priceData, setPriceData] = useState<PriceData | null>(
-    debug ? { high: 361.53, low: 138.8 } : null,
+    debug ? { high: 389.49, low: 138.8 } : null,
   );
   const [imageSrc, setImageSrc] = useState<string | null>(null);
   const router = useRouter();
