@@ -14,7 +14,7 @@ interface PriceData {
 
 // 默认价格
 const DEFAULT_PRICES = {
-  high: 361.53,
+  high: 389.49,
   low: 138.8,
 };
 
