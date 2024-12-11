@@ -117,6 +117,11 @@ export default function Home() {
   useEffect(() => {
     const uploadToBlob = async (dataUrl: string) => {
       try {
+        if (!priceData) {
+          console.error("priceData is unavailable. Aborting blob upload.");
+          return;
+        }
+
         const response = await fetch("/api/upload-blob", {
           method: "POST",
           headers: {
@@ -129,16 +134,28 @@ export default function Home() {
         });
 
         if (!response.ok) {
-          throw new Error("Failed to upload image");
+          const errorMessage = await response.text();
+          throw new Error(
+            `Failed to upload image: ${errorMessage} (Status: ${response.status})`,
+          );
         }
 
-        const { url, isNewUpload } = await response.json();
+        const responseData = await response.json();
+        const { url, isNewUpload } = responseData;
+
+        if (!url) {
+          throw new Error("Invalid response: url is missing");
+        }
+
         setBlobUrl(url);
+
         if (isNewUpload) {
+          // Avoid full page reload if possible:
           router.replace(router.asPath);
         }
       } catch (error) {
         console.error("Error uploading to blob:", error);
+        setBlobError(true);
       }
     };
 
@@ -156,10 +173,7 @@ export default function Home() {
           content="Explore Tesla's 52-week high and low. Get the latest TSLA stock trends, analysis, and insights to make informed decisions."
         />
 
-        <meta
-          property="og:title"
-          content="TSLA 52 Week MEME"
-        />
+        <meta property="og:title" content="TSLA 52 Week MEME" />
         <meta
           property="og:description"
           content="Explore Tesla's 52-week highs and lows. Get the latest TSLA stock trends, analysis, and insights to make informed decisions."
@@ -167,10 +181,7 @@ export default function Home() {
         <meta property="og:image" content={blobUrl || "/default-image.png"} />
         <meta property="og:url" content="https://tsla52week.com" />
         <meta property="og:type" content="website" />
-        <meta
-          property="og:site_name"
-          content="TSLA 52 Week MEME"
-        />
+        <meta property="og:site_name" content="TSLA 52 Week MEME" />
 
         <meta
           name="keywords"
@@ -182,10 +193,7 @@ export default function Home() {
         <link rel="canonical" href="https://tsla52week.com" />
 
         <meta name="twitter:card" content="summary_large_image" />
-        <meta
-          name="twitter:title"
-          content="TSLA 52 Week MEME"
-        />
+        <meta name="twitter:title" content="TSLA 52 Week MEME" />
         <meta
           name="twitter:description"
           content="Discover Tesla's stock highs and lows over the past 52 weeks. Stay updated with TSLA trends and analysis."

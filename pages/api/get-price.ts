@@ -25,10 +25,25 @@ export default async function handler() {
     // 直接从 KV 获取价格数据
     let priceData = await kv.get<PriceData>("priceData");
 
-    // 检查 lastUpdated 时间是否超过 4 小时
-    if (!priceData || Date.now() - priceData.lastUpdated > FOUR_HOURS) {
+    // 检查 priceData 格式和 lastUpdated 时间是否超过 4 小时
+    if (
+      !priceData ||
+      typeof priceData.lastUpdated !== "number" ||
+      Date.now() - priceData.lastUpdated > FOUR_HOURS
+    ) {
       // 使用 update-price 获取最新价格
       priceData = await fetchPriceData();
+
+      // 更新 KV 中的价格数据
+      if (
+        priceData &&
+        typeof priceData.high === "number" &&
+        typeof priceData.low === "number"
+      ) {
+        await kv.set("priceData", { ...priceData, lastUpdated: Date.now() });
+      } else {
+        throw new Error("Invalid price data format from fetchPriceData");
+      }
     }
 
     return NextResponse.json(priceData, {
@@ -37,7 +52,7 @@ export default async function handler() {
       },
     });
   } catch (error) {
-    console.error("KV Error:", error);
+    console.error("Handler Error:", error);
 
     // 发生错误时返回默认价格
     return NextResponse.json(

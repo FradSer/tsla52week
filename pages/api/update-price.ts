@@ -18,7 +18,7 @@ const DEFAULT_PRICES: PriceData = {
   lastUpdated: Date.now(),
 };
 
-export const fetchPriceData = async () => {
+export const fetchPriceData = async (): Promise<PriceData> => {
   try {
     const TWO_HOURS = 2 * 60 * 60 * 1000; // 2小时的毫秒数
 
@@ -31,6 +31,11 @@ export const fetchPriceData = async () => {
 
     // 获取 API 密钥
     const apiKey = process.env.NEXT_PUBLIC_ALPHA_VANTAGE_API_KEY;
+
+    if (!apiKey) {
+      console.error("Missing API key.");
+      throw new Error("API key is not defined.");
+    }
 
     // 调用远程 API
     const response = await fetch(
@@ -90,9 +95,13 @@ export const fetchPriceData = async () => {
     console.error("Error fetching data:", error);
 
     // 如果出错，尝试返回缓存数据
-    const cachedData = await kv.get<PriceData>("priceData");
-    if (cachedData) {
-      return cachedData;
+    try {
+      const cachedData = await kv.get<PriceData>("priceData");
+      if (cachedData) {
+        return cachedData;
+      }
+    } catch (cacheError) {
+      console.error("Error retrieving cached data:", cacheError);
     }
 
     // 如果没有缓存数据，返回默认数据并缓存
