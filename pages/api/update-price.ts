@@ -1,43 +1,24 @@
-import { kv } from "@vercel/kv";
-
-// 配置 Edge Runtime
-export const config = {
-  runtime: "edge",
-};
-
 interface PriceData {
   high: number;
   low: number;
   lastUpdated: number;
 }
 
-// 默认价格数据
-const DEFAULT_PRICES: PriceData = {
-  high: 389.49,
-  low: 138.8,
-  lastUpdated: Date.now(),
-};
-
 export const fetchPriceData = async (): Promise<PriceData> => {
   try {
-    const TWO_HOURS = 2 * 60 * 60 * 1000; // 2小时的毫秒数
+    console.log("Invoking fetchPriceData..."); // 1. Log function invocation
 
-    // 尝试从 KV 存储中获取缓存数据
-    const cachedData = await kv.get<PriceData>("priceData");
+    console.log("Fetching data from API...");
 
-    if (cachedData && Date.now() - cachedData.lastUpdated < TWO_HOURS) {
-      return cachedData;
-    }
-
-    // 获取 API 密钥
     const apiKey = process.env.NEXT_PUBLIC_ALPHA_VANTAGE_API_KEY;
 
     if (!apiKey) {
-      console.error("Missing API key.");
+      console.error("Missing API key."); // 4. Log missing API key
       throw new Error("API key is not defined.");
     }
 
-    // 调用远程 API
+    // 调用远程 API 获取数据
+    console.log("Sending request to external API...");
     const response = await fetch(
       `https://www.alphavantage.co/query?function=TIME_SERIES_MONTHLY_ADJUSTED&symbol=TSLA&apikey=${apiKey}`,
       {
@@ -45,24 +26,34 @@ export const fetchPriceData = async (): Promise<PriceData> => {
       },
     );
 
+    console.log(`API response status: ${response.status}`); // 5. Log API response status
+
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
 
     const data = await response.json();
+    console.log("API response data received:", data); // 5. Log raw API response data for debugging
+
     const timeSeries = data["Monthly Adjusted Time Series"];
 
+    // 如果远程 API 数据无效
     if (!timeSeries) {
-      // 如果远程 API 无效，返回默认数据并缓存
-      await kv.set("priceData", DEFAULT_PRICES);
-      return DEFAULT_PRICES;
+      console.error(
+        "Invalid API response structure: Missing Monthly Adjusted Time Series.",
+      ); // 6. Log API response issue
+      throw new Error(
+        "Invalid API response structure: Missing Monthly Adjusted Time Series.",
+      );
     }
 
-    // 解析最近 12 个月的数据
+    // 解析最近12个月的数据
     const highPrices: number[] = [];
     const lowPrices: number[] = [];
+    console.log("Parsing high/low prices from API response..."); // 6. Log parsing operation
+
     Object.keys(timeSeries)
-      .slice(0, 12)
+      .slice(0, 12) // 最近12个月
       .forEach((date) => {
         const monthData = timeSeries[date];
         const high = parseFloat(monthData["2. high"]);
@@ -74,43 +65,30 @@ export const fetchPriceData = async (): Promise<PriceData> => {
         }
       });
 
-    // 如果解析失败，返回默认数据
+    console.log("Parsed high prices:", highPrices); // Log parsed high prices
+    console.log("Parsed low prices:", lowPrices); // Log parsed low prices
+
+    // 如果价格解析失败，则抛出错误
     if (highPrices.length === 0 || lowPrices.length === 0) {
-      await kv.set("priceData", DEFAULT_PRICES);
-      return DEFAULT_PRICES;
+      console.error("Failed to parse high/low prices from API response."); // 6. Log parsing failure
+      throw new Error("Failed to parse high/low prices from API response.");
     }
 
-    // 生成最新的价格数据
+    // 生成价格数据
     const priceData: PriceData = {
       high: Math.max(...highPrices),
       low: Math.min(...lowPrices),
       lastUpdated: Date.now(),
     };
 
-    // 缓存价格数据
-    await kv.set("priceData", priceData);
+    console.log("Generated new price data:", priceData); // Log new price data
 
-    return priceData;
+    console.log("Successfully updated KV with new price data."); // 7. Log KV set success
+
+    return priceData; // 返回数据
   } catch (error) {
-    console.error("Error fetching data:", error);
+    console.error("Error fetching data:", error); // 8. Log main catch error
 
-    // 如果出错，尝试返回缓存数据
-    try {
-      const cachedData = await kv.get<PriceData>("priceData");
-      if (cachedData) {
-        return cachedData;
-      }
-    } catch (cacheError) {
-      console.error("Error retrieving cached data:", cacheError);
-    }
-
-    // 如果没有缓存数据，返回默认数据并缓存
-    try {
-      await kv.set("priceData", DEFAULT_PRICES);
-    } catch (cacheError) {
-      console.error("Failed to cache default data:", cacheError);
-    }
-
-    return DEFAULT_PRICES;
+    throw error;
   }
 };
