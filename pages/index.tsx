@@ -25,9 +25,12 @@ export default function Home() {
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
   const [blobError, setBlobError] = useState(false);
   const [isReady, setIsReady] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const backgroundRef = useRef<HTMLImageElement | null>(null);
 
   useEffect(() => {
     const fetchLatestBlob = async () => {
+      setIsLoading(true);
       try {
         const response = await fetch("/api/get-latest-blob");
         if (!response.ok) throw new Error("Failed to fetch blob");
@@ -36,11 +39,13 @@ export default function Home() {
       } catch (error) {
         console.error("Error fetching blob:", error);
         setBlobError(true);
+      } finally {
+        setIsLoading(false);
       }
     };
 
     fetchLatestBlob();
-  }, []);
+  }, [debug]);
 
   useEffect(() => {
     const fetchPriceData = async () => {
@@ -61,7 +66,7 @@ export default function Home() {
     };
 
     fetchPriceData();
-  }, []);
+  }, [debug]);
 
   useEffect(() => {
     if (imageSrc && priceData) {
@@ -110,52 +115,64 @@ export default function Home() {
     };
 
     checkAndUploadBlob();
-  }, [isReady]); // Watch `isReady`
+  }, [isReady, priceData, debug, imageSrc]);
 
   useEffect(() => {
     const drawCanvas = () => {
+      setIsLoading(true);
       const canvas = canvasRef.current;
-      if (!canvas || !priceData) return;
+      if (!canvas || !priceData) {
+        setIsLoading(false);
+        return;
+      }
 
       const ctx = canvas.getContext("2d");
-      if (!ctx) return;
+      if (!ctx) {
+        setIsLoading(false);
+        return;
+      }
 
       canvas.width = 1540;
       canvas.height = 1540;
 
-      const background = new window.Image();
-      background.src = "/bg.png";
-      background.onload = () => {
-        ctx.drawImage(background, 0, 0, canvas.width, canvas.height);
-        ctx.fillStyle = "#333";
-        ctx.textAlign = "center";
-        ctx.font = "bold 40px 'Comic Neue'";
+      const background = backgroundRef.current;
+      if (!background) {
+        const img = new window.Image();
+        img.src = "/bg.png";
+        img.onload = () => {
+          backgroundRef.current = img;
+          drawCanvas();
+          setIsLoading(false);
+        };
+        return;
+      }
 
-        ctx.fillText("$TSLA", canvas.width / 1.78, canvas.height / 4);
-        ctx.fillText(
-          "52 week high",
-          canvas.width / 1.78,
-          canvas.height / 4 + 50,
-        );
+      ctx.drawImage(background, 0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = "#333";
+      ctx.textAlign = "center";
+      ctx.font = "bold 40px 'Comic Neue'";
 
-        ctx.fillText("$TSLA", canvas.width / 1.2, canvas.height / 4);
-        ctx.fillText("52 week low", canvas.width / 1.2, canvas.height / 4 + 50);
+      ctx.fillText("$TSLA", canvas.width / 1.78, canvas.height / 4);
+      ctx.fillText("52 week high", canvas.width / 1.78, canvas.height / 4 + 50);
 
-        ctx.font = "bold 48px 'Comic Neue'";
-        ctx.fillText(
-          `@${priceData.high.toFixed(2)}`,
-          canvas.width / 1.78,
-          canvas.height / 4 + 160,
-        );
-        ctx.fillText(
-          `@${priceData.low.toFixed(2)}`,
-          canvas.width / 1.2,
-          canvas.height / 4 + 160,
-        );
+      ctx.fillText("$TSLA", canvas.width / 1.2, canvas.height / 4);
+      ctx.fillText("52 week low", canvas.width / 1.2, canvas.height / 4 + 50);
 
-        const dataUrl = canvas.toDataURL("image/png");
-        setImageSrc(dataUrl);
-      };
+      ctx.font = "bold 48px 'Comic Neue'";
+      ctx.fillText(
+        `@${priceData.high.toFixed(2)}`,
+        canvas.width / 1.78,
+        canvas.height / 4 + 160,
+      );
+      ctx.fillText(
+        `@${priceData.low.toFixed(2)}`,
+        canvas.width / 1.2,
+        canvas.height / 4 + 160,
+      );
+
+      const dataUrl = canvas.toDataURL("image/png");
+      setImageSrc(dataUrl);
+      setIsLoading(false);
     };
 
     drawCanvas();
@@ -180,7 +197,9 @@ export default function Home() {
         <meta property="og:site_name" content="TSLA 52 Week MEME" />
       </Head>
       <div className="relative flex items-center justify-center min-h-screen bg-white">
-        {blobUrl && !blobError ? (
+        {isLoading ? (
+          <div>Loading...</div>
+        ) : blobUrl && !blobError ? (
           <Image
             src={blobUrl}
             alt="Stored Canvas Image"
