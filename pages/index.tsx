@@ -24,6 +24,7 @@ export default function Home() {
   const [imageSrc, setImageSrc] = useState<string | null>(null);
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
   const [blobError, setBlobError] = useState(false);
+  const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
     const fetchLatestBlob = async () => {
@@ -42,7 +43,7 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    const checkAndUploadBlob = async () => {
+    const fetchPriceData = async () => {
       if (debug) return; // Skip in debug mode
 
       try {
@@ -53,19 +54,31 @@ export default function Home() {
         }
 
         const data: PriceData = await response.json();
-        const { high, low, lastUpdated } = data;
-
         setPriceData(data);
+      } catch (error) {
+        console.error("Error fetching price data:", error);
+      }
+    };
 
+    fetchPriceData();
+  }, []);
+
+  useEffect(() => {
+    if (imageSrc && priceData) {
+      setIsReady(true);
+    }
+  }, [imageSrc, priceData]);
+
+  useEffect(() => {
+    const checkAndUploadBlob = async () => {
+      if (debug || !isReady) return; // Skip in debug mode or if not ready
+
+      try {
+        const { high, low, lastUpdated } = priceData!;
         const FOUR_HOURS = 4 * 60 * 60 * 1000; // 4 hours in milliseconds
         const now = Date.now();
 
         if (now - lastUpdated > FOUR_HOURS) {
-          if (!imageSrc) {
-            console.error("Image source is not ready for blob upload.");
-            return;
-          }
-
           console.log("Price data is outdated. Uploading new blob image...");
 
           const uploadResponse = await fetch("/api/upload-blob", {
@@ -97,7 +110,7 @@ export default function Home() {
     };
 
     checkAndUploadBlob();
-  }, [imageSrc]); // Only watch `imageSrc`, avoid infinite loop
+  }, [isReady]); // Watch `isReady`
 
   useEffect(() => {
     const drawCanvas = () => {
