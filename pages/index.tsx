@@ -191,10 +191,20 @@ export default function Home() {
           property="og:description"
           content="Explore Tesla's 52-week highs and lows. Get the latest TSLA stock trends, analysis, and insights to make informed decisions."
         />
-        <meta property="og:image" content={blobUrl || "/default-image.png"} />
+        <meta property="og:image" content="https://www.tsla52week.com/api/og" />
         <meta property="og:url" content="https://tsla52week.com" />
         <meta property="og:type" content="website" />
         <meta property="og:site_name" content="TSLA 52 Week MEME" />
+        <meta
+          property="twitter:image"
+          content="https://www.tsla52week.com/api/og"
+        />
+        <meta property="twitter:card" content="summary_large_image" />
+        <meta property="twitter:title" content="TSLA 52 Week MEME" />
+        <meta
+          property="twitter:description"
+          content="Made with FOMO by @FradSer"
+        />
       </Head>
       <div className="relative flex items-center justify-center min-h-screen bg-white">
         {isLoading ? (
