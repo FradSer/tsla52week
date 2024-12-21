@@ -1,40 +1,105 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/pages/api-reference/create-next-app).
+# TSLA 52 Week MEME
 
-## Getting Started
+[![TypeScript](https://img.shields.io/badge/TypeScript-97.5%25-blue)](https://github.com/FradSer/tsla52week)
 
-First, run the development server:
+A tool/application for tracking Tesla (TSLA) stock's 52-week performance metrics. Built with modern web technologies for reliable stock market data visualization and analysis.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+---
+
+## 🚀 Tech Stack
+
+- **Language**: TypeScript (97.5%)
+- **Styling**: CSS (1.8%)
+- **Additional**: JavaScript (0.7%)
+
+---
+
+## 🌟 Features
+
+- **Stock Tracking**: Monitor Tesla stock's 52-week performance
+- **Data Visualization**: Clear and intuitive display of stock metrics
+- **Type-Safe Development**: Built with TypeScript for reliability
+- **Responsive Design**: Accessible across all devices
+- **Real-time Updates**: Latest stock market data integration
+
+---
+
+## 🛠 Quick Start
+
+1. **Clone the Repository**:
+
+    ```bash
+    git clone https://github.com/FradSer/tsla52week.git
+    cd tsla52week
+    ```
+
+2. **Install Dependencies**:
+
+    ```bash
+    yarn install
+    ```
+
+3. **Start Development Server**:
+
+    ```bash
+    yarn dev
+    ```
+
+---
+
+## 📁 Project Structure
+
+```
+tsla52week/
+├── src/ # Source code
+├── public/ # Static assets
+└── styles/ # CSS styles
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+---
 
-You can start editing the page by modifying `pages/index.tsx`. The page auto-updates as you edit the file.
+## 🔧 Development Scripts
 
-[API routes](https://nextjs.org/docs/pages/building-your-application/routing/api-routes) can be accessed on [http://localhost:3000/api/hello](http://localhost:3000/api/hello). This endpoint can be edited in `pages/api/hello.ts`.
+- `yarn dev`: Start the development server
+- `yarn build`: Create a production build
+- `yarn start`: Launch the production server
+- `yarn test`: Run tests
+- `yarn lint`: Run linting checks
 
-The `pages/api` directory is mapped to `/api/*`. Files in this directory are treated as [API routes](https://nextjs.org/docs/pages/building-your-application/routing/api-routes) instead of React pages.
+---
 
-This project uses [`next/font`](https://nextjs.org/docs/pages/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 🚀 Deployment
 
-## Learn More
+The application is built and deployed automatically. The deployment process includes:
 
-To learn more about Next.js, take a look at the following resources:
+1. TypeScript compilation
+2. Asset optimization
+3. Production build generation
+4. Deployment to hosting platform
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn-pages-router) - an interactive Next.js tutorial.
+---
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## ✅ Code Quality
 
-## Deploy on Vercel
+This project maintains high code quality standards through:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- **TypeScript**: Strict type checking
+- **ESLint**: Code style consistency
+- **Automated Testing**: Ensuring reliability
+- **Modern Best Practices**: Following industry standards
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/pages/building-your-application/deploying) for more details.
+---
+
+## 📜 License
+
+This project is licensed under the [MIT License](LICENSE).
+
+---
+
+## 💬 Contact
+
+For questions or suggestions, please [open an issue](https://github.com/FradSer/tsla52week/issues) in the repository.
+
+---
+
+Built with ❤️ by [FradSer](https://x.com/FradSer)
