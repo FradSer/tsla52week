@@ -1,15 +1,13 @@
-import { ImageResponse } from "@vercel/og";
 import { list } from "@vercel/blob";
+import { ImageResponse } from "@vercel/og";
 import { NextApiRequest, NextApiResponse } from "next";
+import Image from "next/image";
 
 export const config = {
   runtime: "edge",
 };
 
-export default async function handler(
-  req: NextApiRequest,
-  res: NextApiResponse,
-) {
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   let url = null;
 
   try {
@@ -19,8 +17,7 @@ export default async function handler(
     });
 
     const latestBlob = blobs.sort(
-      (a, b) =>
-        new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime(),
+      (a, b) => new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime()
     )[0];
 
     url = latestBlob?.url || null;
@@ -49,12 +46,12 @@ export default async function handler(
           alignItems: "center",
         }}
       >
-        <img width="900" height="900" src={url} />
+        <Image width={900} height={900} src={url} alt="Tesla stock price chart" />
       </div>
     ),
     {
       width: 1200,
       height: 630,
-    },
+    }
   );
 }

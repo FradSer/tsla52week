@@ -1,5 +1,5 @@
-import { NextResponse } from "next/server";
 import { kv } from "@vercel/kv";
+import { NextResponse } from "next/server";
 import { fetchPriceData } from "./update-price";
 
 // MARK: - Configuration
@@ -16,17 +16,17 @@ interface PriceData {
 
 // MARK: - Constants
 const CACHE_CONFIG = {
-  maxAge: 7200,           // 2 hours
-  staleWhileRevalidate: 3600  // 1 hour
+  maxAge: 7200, // 2 hours
+  staleWhileRevalidate: 3600, // 1 hour
 } as const;
 
 const TIME_INTERVALS = {
-  fourHours: 4 * 60 * 60 * 1000
+  fourHours: 4 * 60 * 60 * 1000,
 } as const;
 
-const DEFAULT_PRICE_DATA: Omit<PriceData, 'lastUpdated'> = {
+const DEFAULT_PRICE_DATA: Omit<PriceData, "lastUpdated"> = {
   high: 389.49,
-  low: 138.8
+  low: 138.8,
 };
 
 // MARK: - Helper Functions
@@ -35,11 +35,17 @@ const DEFAULT_PRICE_DATA: Omit<PriceData, 'lastUpdated'> = {
  * @param data - The price data object to validate
  * @returns Boolean indicating if the data is valid
  */
-const isPriceDataValid = (data: any): data is PriceData => {
-  return data &&
-    typeof data.high === "number" &&
-    typeof data.low === "number" &&
-    typeof data.lastUpdated === "number";
+const isPriceDataValid = (data: unknown): data is PriceData => {
+  return (
+    data !== null &&
+    typeof data === "object" &&
+    "high" in data &&
+    "low" in data &&
+    "lastUpdated" in data &&
+    typeof (data as Record<string, unknown>).high === "number" &&
+    typeof (data as Record<string, unknown>).low === "number" &&
+    typeof (data as Record<string, unknown>).lastUpdated === "number"
+  );
 };
 
 /**
@@ -86,19 +92,18 @@ export default async function handler() {
 
     // MARK: - Response Generation
     return NextResponse.json(priceData, {
-      headers: getCacheHeaders()
+      headers: getCacheHeaders(),
     });
-
   } catch (error) {
     // MARK: - Error Handling
     console.error("Price data fetch error:", error);
     return NextResponse.json(
       {
         ...DEFAULT_PRICE_DATA,
-        lastUpdated: Date.now()
+        lastUpdated: Date.now(),
       },
       {
-        headers: getCacheHeaders()
+        headers: getCacheHeaders(),
       }
     );
   }
