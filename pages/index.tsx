@@ -1,227 +1,279 @@
-import { useEffect, useRef, useState } from "react";
+import Head from "next/head";
 import Image from "next/image";
 import Link from "next/link";
-import Head from "next/head";
+import { useCallback, useEffect, useRef, useState } from "react";
 
+// MARK: - Types & Interfaces
 interface PriceData {
   high: number;
   low: number;
   lastUpdated: number;
 }
 
+interface CanvasConfig {
+  width: number;
+  height: number;
+  positions: {
+    high: number;
+    low: number;
+  };
+}
+
+interface MetaConfig {
+  title: string;
+  description: string;
+  domain: string;
+}
+
+// MARK: - Constants
+const UPDATE_INTERVAL = 4 * 60 * 60 * 1000; // 4 hours in milliseconds
+
+const CANVAS_CONFIG: CanvasConfig = {
+  width: 1540,
+  height: 1540,
+  positions: {
+    high: 1540 / 1.78, // Pre-calculated for better performance
+    low: 1540 / 1.2,
+  },
+};
+
+const META_CONFIG: MetaConfig = {
+  title: "TSLA 52 Week MEME",
+  description:
+    "Explore Tesla's 52-week high and low. Get the latest TSLA stock trends, analysis, and insights to make informed decisions.",
+  domain: "https://www.tsla52week.com",
+};
+
+// MARK: - Main Component
+/**
+ * Home component for displaying Tesla stock price visualization
+ * Handles canvas drawing, price data fetching, and image blob management
+ * @returns {JSX.Element} The rendered component
+ */
 export default function Home() {
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const debug = process.env.NEXT_PUBLIC_DEBUG === "true";
+  // MARK: - Refs & State
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const bgImageRef = useRef<HTMLImageElement | null>(null);
+
+  const isDebug = process.env.NEXT_PUBLIC_DEBUG === "true";
   const [priceData, setPriceData] = useState<PriceData | null>(
-    debug
+    isDebug
       ? {
           high: 389.49,
           low: 138.8,
-          lastUpdated: Date.now() - 8 * 60 * 60 * 1000, // Simulate old timestamp
+          lastUpdated: Date.now() - 8 * 60 * 60 * 1000,
         }
-      : null,
+      : null
   );
-  const [imageSrc, setImageSrc] = useState<string | null>(null);
-  const [blobUrl, setBlobUrl] = useState<string | null>(null);
-  const [blobError, setBlobError] = useState(false);
-  const [isReady, setIsReady] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const backgroundRef = useRef<HTMLImageElement | null>(null);
+  const [canvasImageUrl, setCanvasImageUrl] = useState<string | null>(null);
+  const [storedImageUrl, setStoredImageUrl] = useState<string | null>(null);
+  const [hasImageLoadError, setHasImageLoadError] = useState(false);
+  const [isContentReady, setIsContentReady] = useState(false);
+  const [isLoadingContent, setIsLoadingContent] = useState(false);
 
-  useEffect(() => {
-    const fetchLatestBlob = async () => {
-      setIsLoading(true);
-      try {
-        const response = await fetch("/api/get-latest-blob");
-        if (!response.ok) throw new Error("Failed to fetch blob");
-        const { url } = await response.json();
-        if (url) setBlobUrl(url);
-      } catch (error) {
-        console.error("Error fetching blob:", error);
-        setBlobError(true);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+  // MARK: - Data Fetching
+  /**
+   * Fetches the latest stored image blob from the API
+   * Updates storedImageUrl state and handles potential errors
+   */
+  const fetchLatestStoredImage = async () => {
+    setIsLoadingContent(true);
+    try {
+      const response = await fetch("/api/get-latest-blob");
+      if (!response.ok) throw new Error("Failed to fetch stored image");
 
-    fetchLatestBlob();
-  }, [debug]);
-
-  useEffect(() => {
-    const fetchPriceData = async () => {
-      if (debug) return; // Skip in debug mode
-
-      try {
-        const response = await fetch("/api/get-price");
-        if (!response.ok) {
-          console.error("Failed to fetch price data");
-          return;
-        }
-
-        const data: PriceData = await response.json();
-        setPriceData(data);
-      } catch (error) {
-        console.error("Error fetching price data:", error);
-      }
-    };
-
-    fetchPriceData();
-  }, [debug]);
-
-  useEffect(() => {
-    if (imageSrc && priceData) {
-      setIsReady(true);
+      const { url } = await response.json();
+      if (url) setStoredImageUrl(url);
+    } catch (error) {
+      console.error("Error fetching stored image:", error);
+      setHasImageLoadError(true);
+    } finally {
+      setIsLoadingContent(false);
     }
-  }, [imageSrc, priceData]);
+  };
 
-  useEffect(() => {
-    const checkAndUploadBlob = async () => {
-      if (debug || !isReady) return; // Skip in debug mode or if not ready
+  /**
+   * Fetches current TSLA price data from API
+   * Updates priceData state with latest high/low values
+   */
+  const fetchCurrentPrices = useCallback(async () => {
+    if (isDebug) return;
 
-      try {
-        const { high, low, lastUpdated } = priceData!;
-        const FOUR_HOURS = 4 * 60 * 60 * 1000; // 4 hours in milliseconds
-        const now = Date.now();
+    try {
+      const response = await fetch("/api/get-price");
+      if (!response.ok) throw new Error("Failed to fetch price data");
 
-        if (now - lastUpdated > FOUR_HOURS) {
-          console.log("Price data is outdated. Uploading new blob image...");
+      const data: PriceData = await response.json();
+      setPriceData(data);
+    } catch (error) {
+      console.error("Error fetching price data:", error);
+    }
+  }, [isDebug]);
 
-          const uploadResponse = await fetch("/api/upload-blob", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              dataUrl: imageSrc,
-              priceData: { high, low },
-            }),
-          });
+  // MARK: - Canvas Operations
+  /**
+   * Renders price information text on the canvas
+   * @param ctx - Canvas rendering context
+   * @param data - Current price data to display
+   * @param canvas - Canvas element reference
+   */
+  const renderPriceInformation = (
+    ctx: CanvasRenderingContext2D,
+    data: PriceData,
+    canvas: HTMLCanvasElement
+  ) => {
+    ctx.fillStyle = "#333";
+    ctx.textAlign = "center";
 
-          const { url } = await uploadResponse.json();
+    // Draw title sections
+    ctx.font = "bold 40px 'Comic Neue'";
+    Object.entries(CANVAS_CONFIG.positions).forEach(([type, xPosition]) => {
+      ctx.fillText("$TSLA", xPosition, canvas.height / 4);
+      ctx.fillText(`52 week ${type}`, xPosition, canvas.height / 4 + 50);
+    });
 
-          if (!uploadResponse.ok || !url) {
-            console.error("Failed to upload image blob. Invalid response.");
-            return;
-          }
+    // Draw price values
+    ctx.font = "bold 48px 'Comic Neue'";
+    ctx.fillText(
+      `@${data.high.toFixed(2)}`,
+      CANVAS_CONFIG.positions.high,
+      canvas.height / 4 + 160
+    );
+    ctx.fillText(
+      `@${data.low.toFixed(2)}`,
+      CANVAS_CONFIG.positions.low,
+      canvas.height / 4 + 160
+    );
+  };
 
-          console.log("Blob image uploaded successfully:", url);
-          setBlobUrl(url);
-        } else {
-          console.log("Price data is up-to-date. No upload needed.");
-        }
-      } catch (error) {
-        console.error("Error fetching price data or uploading blob:", error);
-      }
-    };
+  /**
+   * Handles canvas drawing lifecycle including background image and price text
+   * Updates canvas image URL state when complete
+   */
+  const updateCanvasContent = useCallback(() => {
+    setIsLoadingContent(true);
+    const canvas = canvasRef.current;
+    if (!canvas || !priceData) {
+      setIsLoadingContent(false);
+      return;
+    }
 
-    checkAndUploadBlob();
-  }, [isReady, priceData, debug, imageSrc]);
+    const ctx = canvas.getContext("2d");
+    if (!ctx) {
+      setIsLoadingContent(false);
+      return;
+    }
 
-  useEffect(() => {
-    const drawCanvas = () => {
-      setIsLoading(true);
-      const canvas = canvasRef.current;
-      if (!canvas || !priceData) {
-        setIsLoading(false);
-        return;
-      }
+    // Setup canvas dimensions
+    canvas.width = CANVAS_CONFIG.width;
+    canvas.height = CANVAS_CONFIG.height;
 
-      const ctx = canvas.getContext("2d");
-      if (!ctx) {
-        setIsLoading(false);
-        return;
-      }
+    // Load or use cached background image
+    const backgroundImage = bgImageRef.current;
+    if (!backgroundImage) {
+      const newImage = new window.Image();
+      newImage.src = "/bg.png";
+      newImage.onload = () => {
+        bgImageRef.current = newImage;
+        updateCanvasContent();
+        setIsLoadingContent(false);
+      };
+      return;
+    }
 
-      canvas.width = 1540;
-      canvas.height = 1540;
+    // Render canvas elements
+    ctx.drawImage(backgroundImage, 0, 0, canvas.width, canvas.height);
+    renderPriceInformation(ctx, priceData, canvas);
 
-      const background = backgroundRef.current;
-      if (!background) {
-        const img = new window.Image();
-        img.src = "/bg.png";
-        img.onload = () => {
-          backgroundRef.current = img;
-          drawCanvas();
-          setIsLoading(false);
-        };
-        return;
-      }
-
-      ctx.drawImage(background, 0, 0, canvas.width, canvas.height);
-      ctx.fillStyle = "#333";
-      ctx.textAlign = "center";
-      ctx.font = "bold 40px 'Comic Neue'";
-
-      ctx.fillText("$TSLA", canvas.width / 1.78, canvas.height / 4);
-      ctx.fillText("52 week high", canvas.width / 1.78, canvas.height / 4 + 50);
-
-      ctx.fillText("$TSLA", canvas.width / 1.2, canvas.height / 4);
-      ctx.fillText("52 week low", canvas.width / 1.2, canvas.height / 4 + 50);
-
-      ctx.font = "bold 48px 'Comic Neue'";
-      ctx.fillText(
-        `@${priceData.high.toFixed(2)}`,
-        canvas.width / 1.78,
-        canvas.height / 4 + 160,
-      );
-      ctx.fillText(
-        `@${priceData.low.toFixed(2)}`,
-        canvas.width / 1.2,
-        canvas.height / 4 + 160,
-      );
-
-      const dataUrl = canvas.toDataURL("image/png");
-      setImageSrc(dataUrl);
-      setIsLoading(false);
-    };
-
-    drawCanvas();
+    setCanvasImageUrl(canvas.toDataURL("image/png"));
+    setIsLoadingContent(false);
   }, [priceData]);
 
+  // MARK: - Effects
+  useEffect(() => {
+    fetchCurrentPrices();
+  }, [fetchCurrentPrices]);
+
+  useEffect(() => {
+    fetchLatestStoredImage();
+  }, [isDebug]);
+
+  useEffect(() => {
+    if (canvasImageUrl && priceData) setIsContentReady(true);
+  }, [canvasImageUrl, priceData]);
+
+  useEffect(() => {
+    updateCanvasContent();
+  }, [updateCanvasContent]);
+
+  /**
+   * Handles automatic image blob upload when conditions are met
+   * Only uploads if enough time has passed since last update
+   */
+  useEffect(() => {
+    const uploadCanvasImage = async () => {
+      if (isDebug || !isContentReady || !priceData || !canvasImageUrl) return;
+
+      const { high, low, lastUpdated } = priceData;
+      if (Date.now() - lastUpdated <= UPDATE_INTERVAL) return;
+
+      try {
+        const response = await fetch("/api/upload-blob", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            dataUrl: canvasImageUrl,
+            priceData: { high, low },
+          }),
+        });
+
+        const { url } = await response.json();
+        if (!response.ok || !url) throw new Error("Image upload failed");
+
+        setStoredImageUrl(url);
+      } catch (error) {
+        console.error("Error uploading image:", error);
+      }
+    };
+
+    uploadCanvasImage();
+  }, [isContentReady, priceData, isDebug, canvasImageUrl]);
+
+  // MARK: - Render Methods
   return (
     <>
       <Head>
-        <title>TSLA 52 Week MEME</title>
-        <meta
-          name="description"
-          content="Explore Tesla's 52-week high and low. Get the latest TSLA stock trends, analysis, and insights to make informed decisions."
-        />
-        <meta property="og:title" content="TSLA 52 Week MEME" />
-        <meta
-          property="og:description"
-          content="Explore Tesla's 52-week highs and lows. Get the latest TSLA stock trends, analysis, and insights to make informed decisions."
-        />
-        <meta property="og:image" content="https://www.tsla52week.com/api/og" />
+        <title>{META_CONFIG.title}</title>
+        <meta name="description" content={META_CONFIG.description} />
+        <meta property="og:title" content={META_CONFIG.title} />
+        <meta property="og:description" content={META_CONFIG.description} />
+        <meta property="og:image" content={`${META_CONFIG.domain}/api/og`} />
         <meta property="og:url" content="https://tsla52week.com" />
         <meta property="og:type" content="website" />
-        <meta property="og:site_name" content="TSLA 52 Week MEME" />
-        <meta
-          property="twitter:image"
-          content="https://www.tsla52week.com/api/og"
-        />
+        <meta property="og:site_name" content={META_CONFIG.title} />
+        <meta property="twitter:image" content={`${META_CONFIG.domain}/api/og`} />
         <meta property="twitter:card" content="summary_large_image" />
-        <meta property="twitter:title" content="TSLA 52 Week MEME" />
-        <meta
-          property="twitter:description"
-          content="Made with FOMO by @FradSer"
-        />
+        <meta property="twitter:title" content={META_CONFIG.title} />
+        <meta property="twitter:description" content="Made with FOMO by @FradSer" />
       </Head>
+
       <div className="relative flex items-center justify-center min-h-screen bg-white">
-        {isLoading ? (
+        {isLoadingContent ? (
           <div>Loading...</div>
-        ) : blobUrl && !blobError ? (
+        ) : storedImageUrl && !hasImageLoadError ? (
           <Image
-            src={blobUrl}
-            alt="Stored Canvas Image"
+            src={storedImageUrl}
+            alt="Stored Price Visualization"
             width={800}
             height={800}
-            onError={() => setBlobError(true)}
+            onError={() => setHasImageLoadError(true)}
           />
-        ) : priceData && imageSrc ? (
-          <Image src={imageSrc} alt="Canvas Image" width={800} height={800} />
+        ) : priceData && canvasImageUrl ? (
+          <Image src={canvasImageUrl} alt="Live Price Visualization" width={800} height={800} />
         ) : (
           <canvas ref={canvasRef} className="hidden" />
         )}
+
         <div className="absolute text-bold text-black bottom-4 flex items-center justify-center w-full">
           Made with FOMO by&nbsp;
           <Link href="https://frad.me">

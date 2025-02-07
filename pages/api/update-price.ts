@@ -1,94 +1,126 @@
+// MARK: - Types & Interfaces
 interface PriceData {
   high: number;
   low: number;
   lastUpdated: number;
 }
 
+interface MonthlyData {
+  "2. high": string;
+  "3. low": string;
+}
+
+interface AlphaVantageResponse {
+  "Monthly Adjusted Time Series": {
+    [key: string]: MonthlyData;
+  };
+}
+
+// MARK: - Constants
+const API_CONFIG = {
+  baseUrl: "https://www.alphavantage.co/query",
+  function: "TIME_SERIES_MONTHLY_ADJUSTED",
+  symbol: "TSLA",
+  monthsToAnalyze: 12
+} as const;
+
+// MARK: - Helper Functions
+/**
+ * Validates and extracts the API key from environment variables
+ * @throws Error if API key is not defined
+ * @returns The API key string
+ */
+const getApiKey = (): string => {
+  const apiKey = process.env.NEXT_PUBLIC_ALPHA_VANTAGE_API_KEY;
+  if (!apiKey) {
+    throw new Error("API key is not defined");
+  }
+  return apiKey;
+};
+
+/**
+ * Constructs the API URL with query parameters
+ * @param apiKey - The Alpha Vantage API key
+ * @returns Complete API URL string
+ */
+const buildApiUrl = (apiKey: string): string => {
+  return `${API_CONFIG.baseUrl}?function=${API_CONFIG.function}&symbol=${API_CONFIG.symbol}&apikey=${apiKey}`;
+};
+
+/**
+ * Extracts and validates high/low prices from time series data
+ * @param timeSeries - Monthly time series data from Alpha Vantage
+ * @returns Object containing arrays of high and low prices
+ * @throws Error if data parsing fails
+ */
+const extractPrices = (timeSeries: { [key: string]: MonthlyData }) => {
+  const highPrices: number[] = [];
+  const lowPrices: number[] = [];
+
+  Object.keys(timeSeries)
+    .slice(0, API_CONFIG.monthsToAnalyze)
+    .forEach((date) => {
+      const monthData = timeSeries[date];
+      const high = parseFloat(monthData["2. high"]);
+      const low = parseFloat(monthData["3. low"]);
+
+      if (!isNaN(high) && !isNaN(low)) {
+        highPrices.push(high);
+        lowPrices.push(low);
+      }
+    });
+
+  if (highPrices.length === 0 || lowPrices.length === 0) {
+    throw new Error("Failed to parse high/low prices from API response");
+  }
+
+  return { highPrices, lowPrices };
+};
+
+// MARK: - Main Function
+/**
+ * Fetches and processes Tesla stock price data from Alpha Vantage API
+ * Includes error handling and data validation
+ * @returns Promise resolving to processed price data
+ * @throws Error if API request fails or data is invalid
+ */
 export const fetchPriceData = async (): Promise<PriceData> => {
   try {
-    console.log("Invoking fetchPriceData..."); // 1. Log function invocation
+    // MARK: - API Request Setup
+    const apiKey = getApiKey();
+    console.log("Initiating API request to Alpha Vantage");
 
-    console.log("Fetching data from API...");
-
-    const apiKey = process.env.NEXT_PUBLIC_ALPHA_VANTAGE_API_KEY;
-
-    if (!apiKey) {
-      console.error("Missing API key."); // 4. Log missing API key
-      throw new Error("API key is not defined.");
-    }
-
-    // 调用远程 API 获取数据
-    console.log("Sending request to external API...");
-    const response = await fetch(
-      `https://www.alphavantage.co/query?function=TIME_SERIES_MONTHLY_ADJUSTED&symbol=TSLA&apikey=${apiKey}`,
-      {
-        headers: { Accept: "application/json" },
-      },
-    );
-
-    console.log(`API response status: ${response.status}`); // 5. Log API response status
+    // MARK: - Data Fetching
+    const response = await fetch(buildApiUrl(apiKey), {
+      headers: { Accept: "application/json" }
+    });
 
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
 
-    const data = await response.json();
-    console.log("API response data received:", data); // 5. Log raw API response data for debugging
-
+    // MARK: - Data Processing
+    const data = await response.json() as AlphaVantageResponse;
     const timeSeries = data["Monthly Adjusted Time Series"];
 
-    // 如果远程 API 数据无效
     if (!timeSeries) {
-      console.error(
-        "Invalid API response structure: Missing Monthly Adjusted Time Series.",
-      ); // 6. Log API response issue
-      throw new Error(
-        "Invalid API response structure: Missing Monthly Adjusted Time Series.",
-      );
+      throw new Error("Invalid API response: Missing Monthly Adjusted Time Series");
     }
 
-    // 解析最近12个月的数据
-    const highPrices: number[] = [];
-    const lowPrices: number[] = [];
-    console.log("Parsing high/low prices from API response..."); // 6. Log parsing operation
-
-    Object.keys(timeSeries)
-      .slice(0, 12) // 最近12个月
-      .forEach((date) => {
-        const monthData = timeSeries[date];
-        const high = parseFloat(monthData["2. high"]);
-        const low = parseFloat(monthData["3. low"]);
-
-        if (!isNaN(high) && !isNaN(low)) {
-          highPrices.push(high);
-          lowPrices.push(low);
-        }
-      });
-
-    console.log("Parsed high prices:", highPrices); // Log parsed high prices
-    console.log("Parsed low prices:", lowPrices); // Log parsed low prices
-
-    // 如果价格解析失败，则抛出错误
-    if (highPrices.length === 0 || lowPrices.length === 0) {
-      console.error("Failed to parse high/low prices from API response."); // 6. Log parsing failure
-      throw new Error("Failed to parse high/low prices from API response.");
-    }
-
-    // 生成价格数据
+    // MARK: - Price Calculation
+    const { highPrices, lowPrices } = extractPrices(timeSeries);
+    
     const priceData: PriceData = {
       high: Math.max(...highPrices),
       low: Math.min(...lowPrices),
-      lastUpdated: Date.now(),
+      lastUpdated: Date.now()
     };
 
-    console.log("Generated new price data:", priceData); // Log new price data
+    console.log("Successfully generated new price data");
+    return priceData;
 
-    console.log("Successfully updated KV with new price data."); // 7. Log KV set success
-
-    return priceData; // 返回数据
   } catch (error) {
-    console.error("Error fetching data:", error); // 8. Log main catch error
-
+    console.error("Price data fetch error:", error);
     throw error;
   }
 };

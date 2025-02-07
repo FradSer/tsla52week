@@ -2,77 +2,104 @@ import { NextResponse } from "next/server";
 import { kv } from "@vercel/kv";
 import { fetchPriceData } from "./update-price";
 
+// MARK: - Configuration
 export const config = {
   runtime: "edge",
 };
 
+// MARK: - Types & Interfaces
 interface PriceData {
   high: number;
   low: number;
   lastUpdated: number;
 }
 
-// 默认价格
-const DEFAULT_PRICES = {
+// MARK: - Constants
+const CACHE_CONFIG = {
+  maxAge: 7200,           // 2 hours
+  staleWhileRevalidate: 3600  // 1 hour
+} as const;
+
+const TIME_INTERVALS = {
+  fourHours: 4 * 60 * 60 * 1000
+} as const;
+
+const DEFAULT_PRICE_DATA: Omit<PriceData, 'lastUpdated'> = {
   high: 389.49,
-  low: 138.8,
+  low: 138.8
 };
 
+// MARK: - Helper Functions
+/**
+ * Validates the structure and values of price data
+ * @param data - The price data object to validate
+ * @returns Boolean indicating if the data is valid
+ */
+const isPriceDataValid = (data: any): data is PriceData => {
+  return data &&
+    typeof data.high === "number" &&
+    typeof data.low === "number" &&
+    typeof data.lastUpdated === "number";
+};
+
+/**
+ * Checks if the price data needs updating based on timestamp
+ * @param timestamp - The lastUpdated timestamp to check
+ * @returns Boolean indicating if an update is needed
+ */
+const isDataStale = (timestamp: number): boolean => {
+  return Date.now() - timestamp > TIME_INTERVALS.fourHours;
+};
+
+/**
+ * Creates response headers with proper caching configuration
+ * @returns Object containing response headers
+ */
+const getCacheHeaders = () => ({
+  "Cache-Control": `public, s-maxage=${CACHE_CONFIG.maxAge}, stale-while-revalidate=${CACHE_CONFIG.staleWhileRevalidate}`,
+});
+
+// MARK: - Main Handler
+/**
+ * Edge API handler for retrieving Tesla stock price data
+ * Implements caching, data validation, and fallback mechanisms
+ * @returns NextResponse containing price data or default values
+ */
 export default async function handler() {
-  console.log("Handler invoked"); // 1. Log handler start
-
   try {
-    const FOUR_HOURS = 4 * 60 * 60 * 1000; // 4小时的毫秒数
-
-    // 直接从 KV 获取价格数据
+    // MARK: - Data Retrieval
     let priceData = await kv.get<PriceData>("priceData");
-    console.log("Retrieved priceData from KV:", priceData); // 2. Log the retrieved data
+    console.log("Retrieved price data:", priceData);
 
-    // 检查 priceData 格式和 lastUpdated 时间是否超过 4 小时
-    if (
-      !priceData ||
-      typeof priceData.lastUpdated !== "number" ||
-      Date.now() - priceData.lastUpdated > FOUR_HOURS
-    ) {
-      console.log("priceData is invalid or outdated. Fetching new data..."); // 4. Log invalid/outdated states
-
-      // 使用 update-price 获取最新价格
+    // MARK: - Data Validation & Update
+    if (!isPriceDataValid(priceData) || isDataStale(priceData.lastUpdated)) {
+      console.log("Fetching fresh price data");
       priceData = await fetchPriceData();
-      console.log("Fetched new priceData:", priceData); // Log fetched price data
 
-      // 更新 KV 中的价格数据
-      if (
-        priceData &&
-        typeof priceData.high === "number" &&
-        typeof priceData.low === "number"
-      ) {
-        await kv.set("priceData", { ...priceData, lastUpdated: Date.now() });
-        console.log("Updated KV with new priceData"); // 3. Log KV update
+      if (isPriceDataValid(priceData)) {
+        await kv.set("priceData", priceData);
+        console.log("Updated cache with new price data");
       } else {
-        throw new Error("Invalid price data format from fetchPriceData");
+        throw new Error("Invalid price data format received");
       }
     }
 
+    // MARK: - Response Generation
     return NextResponse.json(priceData, {
-      headers: {
-        "Cache-Control": "public, s-maxage=7200, stale-while-revalidate=3600",
-      },
+      headers: getCacheHeaders()
     });
-  } catch (error) {
-    console.error("Handler Error:", error);
 
-    // 发生错误时返回默认价格
-    console.log("Returning default prices due to error"); // 5. Log default price handling
+  } catch (error) {
+    // MARK: - Error Handling
+    console.error("Price data fetch error:", error);
     return NextResponse.json(
       {
-        ...DEFAULT_PRICES,
-        lastUpdated: Date.now(),
+        ...DEFAULT_PRICE_DATA,
+        lastUpdated: Date.now()
       },
       {
-        headers: {
-          "Cache-Control": "public, s-maxage=7200, stale-while-revalidate=3600",
-        },
-      },
+        headers: getCacheHeaders()
+      }
     );
   }
 }
