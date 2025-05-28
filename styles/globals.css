@@ -2,6 +2,52 @@
 @tailwind components;
 @tailwind utilities;
 
+@keyframes dotsPulse {
+  0%, 100% {
+    opacity: 0.2;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes fadeIn {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+.handwriting-animation {
+  font-family: 'Comic Neue', cursive;
+  font-size: 1.25rem;
+  color: #666;
+  margin-top: 0.5rem;
+  animation: fadeIn 0.5s ease-out;
+}
+
+.loading-text {
+  font-size: 2rem;
+  font-weight: bold;
+  text-align: center;
+  font-family: 'Comic Neue', cursive;
+  color: #333;
+  margin-bottom: 1rem;
+}
+
+.loading-text .dots {
+  display: inline-block;
+  animation: dotsPulse 1s infinite ease-in-out;
+  margin-left: 4px;
+}
+
+.loading-text span {
+  display: inline-block;
+  animation: fadeIn 0.5s ease-out forwards;
+}
+
 :root {
   --background: #ffffff;
   --foreground: #171717;

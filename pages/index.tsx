@@ -5,24 +5,29 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 // MARK: - Types & Interfaces
 interface PriceData {
-  high: number;
-  low: number;
-  lastUpdated: number;
+high: number;
+low: number;
+lastUpdated: number;
 }
 
 interface CanvasConfig {
-  width: number;
-  height: number;
-  positions: {
-    high: number;
-    low: number;
-  };
+width: number;
+height: number;
+positions: {
+  high: number;
+  low: number;
+};
 }
 
 interface MetaConfig {
-  title: string;
-  description: string;
-  domain: string;
+title: string;
+description: string;
+domain: string;
+}
+
+interface LoadingState {
+isLoading: boolean;
+error: string | null;
 }
 
 // MARK: - Constants
@@ -63,13 +68,16 @@ export default function Home() {
           low: 138.8,
           lastUpdated: Date.now() - 8 * 60 * 60 * 1000,
         }
-      : null
+      : null,
   );
   const [canvasImageUrl, setCanvasImageUrl] = useState<string | null>(null);
   const [storedImageUrl, setStoredImageUrl] = useState<string | null>(null);
   const [hasImageLoadError, setHasImageLoadError] = useState(false);
+  const [loadingState, setLoadingState] = useState<LoadingState>({
+    isLoading: false,
+    error: null
+  });
   const [isContentReady, setIsContentReady] = useState(false);
-  const [isLoadingContent, setIsLoadingContent] = useState(false);
 
   // MARK: - Data Fetching
   /**
@@ -77,7 +85,7 @@ export default function Home() {
    * Updates storedImageUrl state and handles potential errors
    */
   const fetchLatestStoredImage = async () => {
-    setIsLoadingContent(true);
+    setLoadingState({ isLoading: true, error: null });
     try {
       const response = await fetch("/api/get-latest-blob");
       if (!response.ok) throw new Error("Failed to fetch stored image");
@@ -88,7 +96,7 @@ export default function Home() {
       console.error("Error fetching stored image:", error);
       setHasImageLoadError(true);
     } finally {
-      setIsLoadingContent(false);
+      setLoadingState({ isLoading: false, error: null });
     }
   };
 
@@ -120,7 +128,7 @@ export default function Home() {
   const renderPriceInformation = (
     ctx: CanvasRenderingContext2D,
     data: PriceData,
-    canvas: HTMLCanvasElement
+    canvas: HTMLCanvasElement,
   ) => {
     ctx.fillStyle = "#333";
     ctx.textAlign = "center";
@@ -137,12 +145,12 @@ export default function Home() {
     ctx.fillText(
       `@${data.high.toFixed(2)}`,
       CANVAS_CONFIG.positions.high,
-      canvas.height / 4 + 160
+      canvas.height / 4 + 160,
     );
     ctx.fillText(
       `@${data.low.toFixed(2)}`,
       CANVAS_CONFIG.positions.low,
-      canvas.height / 4 + 160
+      canvas.height / 4 + 160,
     );
   };
 
@@ -151,18 +159,17 @@ export default function Home() {
    * Updates canvas image URL state when complete
    */
   const updateCanvasContent = useCallback(() => {
-    setIsLoadingContent(true);
     const canvas = canvasRef.current;
     if (!canvas || !priceData) {
-      setIsLoadingContent(false);
       return;
     }
 
     const ctx = canvas.getContext("2d");
     if (!ctx) {
-      setIsLoadingContent(false);
+      setLoadingState({ isLoading: false, error: "Failed to get canvas context" });
       return;
     }
+    setLoadingState({ isLoading: true, error: null });
 
     // Setup canvas dimensions
     canvas.width = CANVAS_CONFIG.width;
@@ -176,7 +183,7 @@ export default function Home() {
       newImage.onload = () => {
         bgImageRef.current = newImage;
         updateCanvasContent();
-        setIsLoadingContent(false);
+        setLoadingState({ isLoading: false, error: null });
       };
       return;
     }
@@ -186,7 +193,7 @@ export default function Home() {
     renderPriceInformation(ctx, priceData, canvas);
 
     setCanvasImageUrl(canvas.toDataURL("image/png"));
-    setIsLoadingContent(false);
+    setLoadingState({ isLoading: false, error: null });
   }, [priceData]);
 
   // MARK: - Effects
@@ -200,11 +207,23 @@ export default function Home() {
 
   useEffect(() => {
     if (canvasImageUrl && priceData) setIsContentReady(true);
-  }, [canvasImageUrl, priceData]);
+  }, [canvasImageUrl, priceData, setIsContentReady]);
+
+  // Throttled canvas update
+  const throttledUpdateCanvas = useCallback(() => {
+    let lastCall = 0;
+    const delay = 1000; // 1 second delay
+    
+    const now = Date.now();
+    if (now - lastCall >= delay) {
+      updateCanvasContent();
+      lastCall = now;
+    }
+  }, [updateCanvasContent]);
 
   useEffect(() => {
-    updateCanvasContent();
-  }, [updateCanvasContent]);
+    throttledUpdateCanvas();
+  }, [throttledUpdateCanvas]);
 
   /**
    * Handles automatic image blob upload when conditions are met
@@ -251,25 +270,52 @@ export default function Home() {
         <meta property="og:url" content="https://tsla52week.com" />
         <meta property="og:type" content="website" />
         <meta property="og:site_name" content={META_CONFIG.title} />
-        <meta property="twitter:image" content={`${META_CONFIG.domain}/api/og`} />
+        <meta
+          property="twitter:image"
+          content={`${META_CONFIG.domain}/api/og`}
+        />
         <meta property="twitter:card" content="summary_large_image" />
         <meta property="twitter:title" content={META_CONFIG.title} />
-        <meta property="twitter:description" content="Made with FOMO by @FradSer" />
+        <meta
+          property="twitter:description"
+          content="Made with FOMO by @FradSer"
+        />
       </Head>
 
       <div className="relative flex items-center justify-center min-h-screen bg-white">
-        {isLoadingContent ? (
-          <div>Loading...</div>
+        {!priceData ? (
+          <div className="flex flex-col items-center justify-center">
+            <div className="loading-text">
+              Loading $TSLA<span className="dots">...</span>
+            </div>
+            <div className="handwriting-animation">Getting latest prices</div>
+          </div>
+        ) : loadingState.isLoading ? (
+          <div className="flex flex-col items-center justify-center">
+            <div className="loading-text">
+              Drawing meme<span className="dots">...</span>
+            </div>
+            <div className="handwriting-animation">with FOMO</div>
+          </div>
+        ) : loadingState.error ? (
+          <div className="text-red-500 p-4 rounded-lg bg-red-50 border border-red-200">
+            <p>{loadingState.error}</p>
+          </div>
         ) : storedImageUrl && !hasImageLoadError ? (
           <Image
-            src={storedImageUrl}
+            src={storedImageUrl || ''}
             alt="Stored Price Visualization"
             width={800}
             height={800}
             onError={() => setHasImageLoadError(true)}
           />
         ) : priceData && canvasImageUrl ? (
-          <Image src={canvasImageUrl} alt="Live Price Visualization" width={800} height={800} />
+          <Image
+            src={canvasImageUrl || ''}
+            alt="Live Price Visualization"
+            width={800}
+            height={800}
+          />
         ) : (
           <canvas ref={canvasRef} className="hidden" />
         )}

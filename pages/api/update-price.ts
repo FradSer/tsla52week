@@ -30,12 +30,10 @@ const API_CONFIG = {
  * @throws Error if API key is not defined
  * @returns The API key string
  */
+import { getEnvVar } from '@/config/env';
+
 const getApiKey = (): string => {
-  const apiKey = process.env.NEXT_PUBLIC_ALPHA_VANTAGE_API_KEY;
-  if (!apiKey) {
-    throw new Error("API key is not defined");
-  }
-  return apiKey;
+  return getEnvVar('NEXT_PUBLIC_ALPHA_VANTAGE_API_KEY');
 };
 
 /**
@@ -64,7 +62,7 @@ const extractPrices = (timeSeries: { [key: string]: MonthlyData }) => {
       const high = parseFloat(monthData["2. high"]);
       const low = parseFloat(monthData["3. low"]);
 
-      if (!isNaN(high) && !isNaN(low)) {
+      if (!isNaN(high) && !isNaN(low) && high > 0 && low > 0 && high >= low) {
         highPrices.push(high);
         lowPrices.push(low);
       }
@@ -96,7 +94,7 @@ export const fetchPriceData = async (): Promise<PriceData> => {
     });
 
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      throw new Error(`Alpha Vantage API error! status: ${response.status}, ${await response.text()}`);
     }
 
     // MARK: - Data Processing
@@ -120,7 +118,7 @@ export const fetchPriceData = async (): Promise<PriceData> => {
     return priceData;
 
   } catch (error) {
-    console.error("Price data fetch error:", error);
-    throw error;
+    console.error("Price data fetch error:", error instanceof Error ? error.message : String(error));
+    throw new Error("Failed to fetch price data from Alpha Vantage");
   }
 };

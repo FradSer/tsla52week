@@ -1,6 +1,10 @@
-import { put, list } from "@vercel/blob";
+import { put, list, del } from "@vercel/blob";
 import { NextApiRequest, NextApiResponse } from "next";
 import type { PriceData } from "@/types/price";
+import { getEnvVar } from "@/config/env";
+
+// Constants
+const MAX_STORED_IMAGES = 10;
 
 export default async function handler(
   req: NextApiRequest,
@@ -17,7 +21,26 @@ export default async function handler(
     // 获取最新的图片和价格数据
     const { blobs } = await list({
       prefix: "tesla-",
+      limit: 100, // Reasonable limit to prevent loading too many blobs
     });
+
+    // Clean up old blobs if we exceed the limit
+    if (blobs.length > MAX_STORED_IMAGES) {
+      const blobsToDelete = blobs
+        .sort((a, b) => new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime())
+        .slice(MAX_STORED_IMAGES);
+
+      await Promise.all(
+        blobsToDelete.map(async (blob) => {
+          try {
+            await del(blob.url);
+            console.log(`Deleted old blob: ${blob.url}`);
+          } catch (error) {
+            console.error(`Failed to delete blob ${blob.url}:`, error);
+          }
+        })
+      );
+    }
 
     const latestBlob = blobs.sort(
       (a, b) =>
@@ -64,12 +87,15 @@ export default async function handler(
     // Upload to Vercel Blob with price data in filename
     const { url } = await put(`tesla-prices-${priceString}.png`, blob, {
       access: "public",
-      token: process.env.BLOB_READ_WRITE_TOKEN,
+      token: getEnvVar('BLOB_READ_WRITE_TOKEN'),
     });
 
     return res.status(200).json({ url, isNewUpload: true });
   } catch (error) {
-    console.error("Error uploading to blob:", error);
-    return res.status(500).json({ error: "Failed to upload image" });
+    console.error("Error uploading to blob:", error instanceof Error ? error.message : String(error));
+    return res.status(500).json({ 
+      error: "Failed to upload image",
+      details: error instanceof Error ? error.message : "Unknown error occurred"
+    });
   }
 }

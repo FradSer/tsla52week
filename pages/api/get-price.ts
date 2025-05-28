@@ -36,15 +36,27 @@ const DEFAULT_PRICE_DATA: Omit<PriceData, "lastUpdated"> = {
  * @returns Boolean indicating if the data is valid
  */
 const isPriceDataValid = (data: unknown): data is PriceData => {
+  if (
+    data === null ||
+    typeof data !== "object" ||
+    !("high" in data) ||
+    !("low" in data) ||
+    !("lastUpdated" in data)
+  ) {
+    return false;
+  }
+
+  const { high, low, lastUpdated } = data as Record<string, unknown>;
+  
   return (
-    data !== null &&
-    typeof data === "object" &&
-    "high" in data &&
-    "low" in data &&
-    "lastUpdated" in data &&
-    typeof (data as Record<string, unknown>).high === "number" &&
-    typeof (data as Record<string, unknown>).low === "number" &&
-    typeof (data as Record<string, unknown>).lastUpdated === "number"
+    typeof high === "number" &&
+    typeof low === "number" &&
+    typeof lastUpdated === "number" &&
+    high > 0 &&
+    low > 0 &&
+    high >= low &&
+    lastUpdated > 0 &&
+    lastUpdated <= Date.now()
   );
 };
 
@@ -79,16 +91,23 @@ export default async function handler() {
 
     // MARK: - Data Validation & Update
     if (!isPriceDataValid(priceData) || isDataStale(priceData.lastUpdated)) {
-      console.log("Fetching fresh price data");
-      priceData = await fetchPriceData();
+          console.log("Current data invalid or stale, fetching fresh price data");
+          try {
+            priceData = await fetchPriceData();
 
-      if (isPriceDataValid(priceData)) {
-        await kv.set("priceData", priceData);
-        console.log("Updated cache with new price data");
-      } else {
-        throw new Error("Invalid price data format received");
-      }
-    }
+            if (isPriceDataValid(priceData)) {
+              await kv.set("priceData", priceData);
+              console.log("Updated cache with new price data:", priceData);
+            } else {
+              throw new Error("Received invalid price data format from API");
+            }
+          } catch (error) {
+            console.error("Failed to fetch or validate fresh price data:", 
+              error instanceof Error ? error.message : String(error)
+            );
+            throw error;
+          }
+        }
 
     // MARK: - Response Generation
     return NextResponse.json(priceData, {
@@ -96,14 +115,24 @@ export default async function handler() {
     });
   } catch (error) {
     // MARK: - Error Handling
-    console.error("Price data fetch error:", error);
+    console.error(
+      "Price data fetch error:",
+      error instanceof Error ? error.message : String(error)
+    );
+    const fallbackData = {
+      ...DEFAULT_PRICE_DATA,
+      lastUpdated: Date.now(),
+    };
     return NextResponse.json(
       {
-        ...DEFAULT_PRICE_DATA,
-        lastUpdated: Date.now(),
+        ...fallbackData,
+        error: "Failed to fetch price data, using fallback values",
       },
       {
-        headers: getCacheHeaders(),
+        headers: {
+          ...getCacheHeaders(),
+          "X-Error-Details": error instanceof Error ? error.message : "Unknown error",
+        },
       }
     );
   }
